@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Users, Trash2, Edit2, Check, UserCheck } from 'lucide-react';
+import { X, Plus, Users, Trash2, Edit2, Check, AlertCircle, Lock } from 'lucide-react';
 import { useDemands } from '../context/DemandContext';
 import { USER_ROLE_CONFIG } from '../data/constants';
 import { User, UserRole } from '../types';
@@ -20,7 +20,7 @@ export const ManageTeamModal: React.FC = () => {
     deleteUser,
     demands,
     currentUser,
-    setCurrentUser,
+    isEtapaFinal,
     theme,
   } = useDemands();
 
@@ -28,10 +28,13 @@ export const ManageTeamModal: React.FC = () => {
 
   const [isAdding, setIsAdding] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
 
   // Form state
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
   const [papel, setPapel] = useState<UserRole>('designer');
   const [corAvatar, setCorAvatar] = useState(AVATAR_COLORS[0]);
 
@@ -40,10 +43,12 @@ export const ManageTeamModal: React.FC = () => {
   const resetForm = () => {
     setNome('');
     setEmail('');
+    setSenha('');
     setPapel('designer');
     setCorAvatar(AVATAR_COLORS[0]);
     setIsAdding(false);
     setEditingUserId(null);
+    setFormError('');
   };
 
   const handleStartEdit = (user: User) => {
@@ -53,28 +58,48 @@ export const ManageTeamModal: React.FC = () => {
     setPapel(user.papel);
     setCorAvatar(user.cor_avatar);
     setIsAdding(false);
+    setFormError('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome.trim()) return;
+    setFormError('');
 
     if (editingUserId) {
-      updateUser(editingUserId, {
+      setIsSubmitting(true);
+      await updateUser(editingUserId, {
         nome: nome.trim(),
         email: email.trim(),
         papel,
         cor_avatar: corAvatar,
       });
+      setIsSubmitting(false);
+      resetForm();
     } else {
-      addUser({
+      if (!email.trim()) {
+        setFormError('Informe o email do novo membro.');
+        return;
+      }
+      if (senha.length < 6) {
+        setFormError('A senha deve ter pelo menos 6 caracteres.');
+        return;
+      }
+      setIsSubmitting(true);
+      const result = await addUser({
         nome: nome.trim(),
-        email: email.trim() || `${nome.toLowerCase().replace(/\s+/g, '.')}@agencia.com`,
+        email: email.trim(),
+        senha,
         papel,
         cor_avatar: corAvatar,
       });
+      setIsSubmitting(false);
+      if (!result.success) {
+        setFormError(result.error || 'Não foi possível cadastrar o membro.');
+        return;
+      }
+      resetForm();
     }
-    resetForm();
   };
 
   return (
@@ -114,7 +139,7 @@ export const ManageTeamModal: React.FC = () => {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
-          
+
           {/* Add / Edit Form */}
           {(isAdding || editingUserId) && (
             <form onSubmit={handleSubmit} className={`p-4 rounded-xl border space-y-3 backdrop-blur-md ${
@@ -142,9 +167,10 @@ export const ManageTeamModal: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className={`text-xs font-semibold block mb-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>E-mail</label>
+                  <label className={`text-xs font-semibold block mb-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>E-mail {editingUserId ? '' : '*'}</label>
                   <input
                     type="email"
+                    required={!editingUserId}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="juliana.designer@agencia.com"
@@ -156,6 +182,28 @@ export const ManageTeamModal: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {!editingUserId && (
+                <div>
+                  <label className={`text-xs font-semibold block mb-1 flex items-center gap-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    <Lock className="w-3 h-3" />
+                    <span>Senha de acesso * (mín. 6 caracteres)</span>
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    placeholder="••••••••"
+                    className={`w-full text-xs p-2.5 border rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-400/50 ${
+                      isDark
+                        ? 'bg-white/[0.05] border-white/10 text-slate-100 placeholder-slate-500 focus:bg-white/[0.08]'
+                        : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
+                    }`}
+                  />
+                </div>
+              )}
 
               <div>
                 <label className={`text-xs font-semibold block mb-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Papel / Especialidade *</label>
@@ -194,6 +242,15 @@ export const ManageTeamModal: React.FC = () => {
                 </div>
               </div>
 
+              {formError && (
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border ${
+                  isDark ? 'bg-rose-500/15 border-rose-500/30 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-700'
+                }`}>
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -206,10 +263,11 @@ export const ManageTeamModal: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-600/30 transition-all cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  <span>{editingUserId ? 'Salvar Alterações' : 'Adicionar Membro'}</span>
+                  <span>{isSubmitting ? 'Salvando...' : editingUserId ? 'Salvar Alterações' : 'Adicionar Membro'}</span>
                 </button>
               </div>
             </form>
@@ -234,7 +292,7 @@ export const ManageTeamModal: React.FC = () => {
           <div className="space-y-2">
             {users.map((user) => {
               const activeCount = demands.filter(
-                (d) => d.responsavel_id === user.id && d.etapa_id !== 'stage_concluido'
+                (d) => d.responsavel_id === user.id && !isEtapaFinal(d.etapa_id)
               ).length;
 
               return (
@@ -276,19 +334,6 @@ export const ManageTeamModal: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    {currentUser.id !== user.id && (
-                      <button
-                        onClick={() => setCurrentUser(user)}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
-                          isDark
-                            ? 'text-indigo-300 hover:text-white hover:bg-indigo-600/30 border-indigo-500/30'
-                            : 'text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 border-indigo-200 bg-white'
-                        }`}
-                        title="Simular uso como este membro"
-                      >
-                        Assumir
-                      </button>
-                    )}
                     <button
                       onClick={() => handleStartEdit(user)}
                       className={`p-2 rounded-xl transition-colors cursor-pointer ${
@@ -298,7 +343,7 @@ export const ManageTeamModal: React.FC = () => {
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    {users.length > 1 && (
+                    {users.length > 1 && currentUser.id !== user.id && (
                       <button
                         onClick={() => {
                           if (confirm(`Deseja remover "${user.nome}" da equipe?`)) {

@@ -6,31 +6,28 @@ import {
   Users,
   Plus,
   Settings,
-  Sparkles,
   Download,
   Upload,
   RotateCcw,
   Building2,
   SlidersHorizontal,
-  ChevronDown,
   Layers,
   AlertCircle,
   Clock,
   CheckCircle2,
   Sun,
   Moon,
+  LogOut,
 } from 'lucide-react';
 import { useDemands } from '../context/DemandContext';
+import { useAuth } from '../context/AuthContext';
 import { USER_ROLE_CONFIG } from '../data/constants';
-import { ViewMode } from '../types';
 import { getInitials } from '../utils/formatters';
 
 export const Navbar: React.FC = () => {
   const {
     demands,
     currentUser,
-    setCurrentUser,
-    users,
     isEtapaFinal,
     viewMode,
     setViewMode,
@@ -40,26 +37,21 @@ export const Navbar: React.FC = () => {
     setIsClientModalOpen,
     setIsTeamModalOpen,
     setIsStageModalOpen,
-    setIsAiModalOpen,
     resetToDefaults,
     exportDataJson,
     importDataJson,
   } = useDemands();
+  const { logout } = useAuth();
 
   const isDark = theme === 'dark';
 
-  const [isPersonaMenuOpen, setIsPersonaMenuOpen] = useState(false);
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
-  const personaMenuRef = useRef<HTMLDivElement>(null);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Close menus when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (personaMenuRef.current && !personaMenuRef.current.contains(event.target as Node)) {
-        setIsPersonaMenuOpen(false);
-      }
       if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target as Node)) {
         setIsSettingsMenuOpen(false);
       }
@@ -105,7 +97,7 @@ export const Navbar: React.FC = () => {
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-y-2 gap-x-4 py-2.5 sm:h-16 sm:py-0">
           
           {/* Logo & Agency Brand */}
           <div className="flex items-center gap-3 shrink-0">
@@ -121,7 +113,7 @@ export const Navbar: React.FC = () => {
                   Agência
                 </span>
               </div>
-              <p className={`text-xs hidden sm:block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              <p className={`text-xs hidden md:block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 Gestão de Demandas • Design, Vídeo & Social Media
               </p>
             </div>
@@ -163,7 +155,7 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Right Actions & Persona Switcher */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-2.5">
             
             {/* View Switchers */}
             <div
@@ -186,7 +178,7 @@ export const Navbar: React.FC = () => {
                 title="Visualização em Quadro Kanban"
               >
                 <Kanban className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Quadro</span>
+                <span className="hidden lg:inline">Quadro</span>
               </button>
 
               <button
@@ -204,7 +196,7 @@ export const Navbar: React.FC = () => {
                 title="Visualização em Tabela / Lista"
               >
                 <TableIcon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Lista</span>
+                <span className="hidden lg:inline">Lista</span>
               </button>
 
               <button
@@ -222,7 +214,7 @@ export const Navbar: React.FC = () => {
                 title="Visualização em Calendário"
               >
                 <Calendar className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Calendário</span>
+                <span className="hidden lg:inline">Calendário</span>
               </button>
 
               <button
@@ -240,7 +232,7 @@ export const Navbar: React.FC = () => {
                 title="Carga de Trabalho da Equipe"
               >
                 <Users className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Carga Equipe</span>
+                <span className="hidden lg:inline">Carga Equipe</span>
               </button>
             </div>
 
@@ -263,87 +255,49 @@ export const Navbar: React.FC = () => {
               )}
             </button>
 
-            {/* Persona Switcher Dropdown */}
-            <div className="relative" ref={personaMenuRef}>
-              <button
-                id="persona-switcher-btn"
-                onClick={() => setIsPersonaMenuOpen(!isPersonaMenuOpen)}
-                className={`flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-xl border text-left transition-all text-xs backdrop-blur-md ${
-                  isDark
-                    ? 'border-white/10 bg-white/[0.05] hover:bg-white/[0.09]'
-                    : 'border-slate-200 bg-white hover:bg-slate-50 shadow-xs'
-                }`}
-                title="Trocar usuário ativo para testar a experiência"
+            {/* Usuário Logado */}
+            <div
+              className={`flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-xl border text-left text-xs backdrop-blur-md ${
+                isDark
+                  ? 'border-white/10 bg-white/[0.05]'
+                  : 'border-slate-200 bg-white shadow-xs'
+              }`}
+              title={`Logado como ${currentUser.nome}`}
+            >
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-[10px] shrink-0 shadow-sm"
+                style={{ backgroundColor: currentUser.cor_avatar }}
               >
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-[10px] shrink-0 shadow-sm"
-                  style={{ backgroundColor: currentUser.cor_avatar }}
-                >
-                  {getInitials(currentUser.nome)}
+                {getInitials(currentUser.nome)}
+              </div>
+              <div className="hidden xl:block">
+                <div className={`font-semibold text-xs leading-none ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                  {currentUser.nome.split(' ')[0]}
                 </div>
-                <div className="hidden xl:block">
-                  <div className={`font-semibold text-xs leading-none ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
-                    {currentUser.nome.split(' ')[0]}
-                  </div>
-                  <div className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {USER_ROLE_CONFIG[currentUser.papel].label}
-                  </div>
+                <div className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {USER_ROLE_CONFIG[currentUser.papel].label}
                 </div>
-                <ChevronDown className={`w-3 h-3 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
-              </button>
-
-              {isPersonaMenuOpen && (
-                <div
-                  className={`absolute right-0 mt-2 w-64 backdrop-blur-2xl rounded-2xl shadow-2xl border py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150 ${
-                    isDark
-                      ? 'bg-[#121218]/95 border-white/15 text-slate-100'
-                      : 'bg-white/95 border-slate-200 text-slate-900 shadow-slate-300/50'
-                  }`}
-                >
-                  <div className={`px-3 py-2 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
-                    <p className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                      Visualizar como (Persona)
-                    </p>
-                  </div>
-                  <div className="py-1">
-                    {users.map((user) => (
-                      <button
-                        key={user.id}
-                        onClick={() => {
-                          setCurrentUser(user);
-                          setIsPersonaMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
-                          currentUser.id === user.id
-                            ? isDark
-                              ? 'bg-indigo-500/20 font-semibold text-white'
-                              : 'bg-indigo-50 font-semibold text-indigo-900'
-                            : isDark
-                              ? 'hover:bg-white/10 text-slate-200'
-                              : 'hover:bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm"
-                          style={{ backgroundColor: user.cor_avatar }}
-                        >
-                          {getInitials(user.nome)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs truncate font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}>{user.nome}</p>
-                          <span className={`inline-block text-[10px] px-1.5 py-0.2 rounded border font-medium ${USER_ROLE_CONFIG[user.papel].badge}`}>
-                            {USER_ROLE_CONFIG[user.papel].label}
-                          </span>
-                        </div>
-                        {currentUser.id === user.id && (
-                          <div className="w-2 h-2 rounded-full bg-indigo-400 shadow-xs shadow-indigo-400"></div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
+
+            {/* Logout */}
+            <button
+              id="logout-btn"
+              onClick={() => {
+                if (confirm('Deseja sair da sua conta?')) {
+                  logout();
+                }
+              }}
+              className={`flex items-center justify-center p-2 rounded-xl border backdrop-blur-md transition-all cursor-pointer ${
+                isDark
+                  ? 'border-white/10 bg-white/[0.05] hover:bg-white/[0.1] text-rose-300 hover:text-rose-200 shadow-xs'
+                  : 'border-slate-200 bg-white hover:bg-slate-50 text-rose-600 hover:text-rose-700 shadow-xs'
+              }`}
+              title="Sair da conta"
+              aria-label="Sair"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
 
             {/* Quick Settings & Management Menu */}
             <div className="relative" ref={settingsMenuRef}>
@@ -435,17 +389,6 @@ export const Navbar: React.FC = () => {
                   >
                     <SlidersHorizontal className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
                     <span>Configurar Colunas (Etapas)</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsAiModalOpen(true);
-                      setIsSettingsMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-indigo-600 dark:text-indigo-300 bg-indigo-500/10 dark:bg-indigo-500/15 hover:bg-indigo-500/20 dark:hover:bg-indigo-500/25 transition-colors font-medium border-y border-indigo-500/20"
-                  >
-                    <Sparkles className="w-4 h-4 text-amber-500 dark:text-amber-300" />
-                    <span>Assistente de Briefing & Copy</span>
                   </button>
 
                   <div className={`my-1 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`}></div>

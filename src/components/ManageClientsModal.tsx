@@ -17,8 +17,11 @@ export const ManageClientsModal: React.FC = () => {
     updateClient,
     deleteClient,
     demands,
+    isEtapaFinal,
     theme,
   } = useDemands();
+
+  const todayStr = new Date().toISOString().split('T')[0];
 
   const isDark = theme === 'dark';
 
@@ -232,30 +235,55 @@ export const ManageClientsModal: React.FC = () => {
           {/* List of Clients */}
           <div className="space-y-2">
             {clients.map((client) => {
-              const clientDemandsCount = demands.filter((d) => d.cliente_id === client.id).length;
+              const clientDemands = demands.filter((d) => d.cliente_id === client.id);
+              const concluidas = clientDemands.filter((d) => isEtapaFinal(d.etapa_id)).length;
+              const atrasadas = clientDemands.filter(
+                (d) => !isEtapaFinal(d.etapa_id) && d.prazo && d.prazo < todayStr
+              ).length;
+              const ativas = clientDemands.filter((d) => !isEtapaFinal(d.etapa_id)).length;
 
               return (
                 <div
                   key={client.id}
-                  className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl border transition-all ${
                     isDark
                       ? 'border-white/10 hover:border-white/20 bg-white/[0.03] hover:bg-white/[0.05]'
                       : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 shadow-xs'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div
                       className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-xs"
                       style={{ backgroundColor: client.cor_identificacao }}
                     >
                       {client.nome.charAt(0)}
                     </div>
-                    <div>
-                      <h4 className={`font-bold text-xs sm:text-sm ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{client.nome}</h4>
-                      <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {client.segmento || 'Sem segmento'} • {clientDemandsCount} demandas cadastradas
+                    <div className="min-w-0">
+                      <h4 className={`font-bold text-xs sm:text-sm truncate ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>{client.nome}</h4>
+                      <p className={`text-[11px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {client.segmento || 'Sem segmento'} • {clientDemands.length} demandas cadastradas
                       </p>
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0 pl-11 sm:pl-0">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
+                      isDark ? 'bg-blue-500/15 text-blue-300 border-blue-500/30' : 'bg-blue-50 text-blue-700 border-blue-200'
+                    }`} title="Demandas ativas (não concluídas)">
+                      {ativas} ativas
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
+                      isDark ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`} title="Demandas concluídas">
+                      {concluidas} concluídas
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
+                      atrasadas > 0
+                        ? isDark ? 'bg-rose-500/15 text-rose-300 border-rose-500/30' : 'bg-rose-50 text-rose-700 border-rose-200'
+                        : isDark ? 'bg-white/[0.05] text-slate-400 border-white/10' : 'bg-slate-50 text-slate-500 border-slate-200'
+                    }`} title="Demandas com prazo vencido e não concluídas">
+                      {atrasadas} atrasadas
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-1">

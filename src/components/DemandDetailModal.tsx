@@ -20,11 +20,22 @@ import {
   Check,
   Share2,
   FileText,
+  Play,
+  Square,
+  AlertCircle,
 } from 'lucide-react';
 import { useDemands } from '../context/DemandContext';
 import { DEFAULT_CHECKLIST_BY_TYPE, PIECE_TYPE_CONFIG, PRIORITY_CONFIG, USER_ROLE_CONFIG, VIDEO_ROUTINE_CHECKLIST } from '../data/constants';
 import { PieceType, Priority } from '../types';
-import { formatDateBR, formatRelativeDateBR, formatTimeAgo, getInitials } from '../utils/formatters';
+import {
+  formatDateBR,
+  formatMinutesToHours,
+  formatRelativeDateBR,
+  formatTimeAgo,
+  formatTimeHM,
+  getInitials,
+  parseDurationToMinutes,
+} from '../utils/formatters';
 import { PieceTypeIcon } from './PieceTypeIcon';
 
 export const DemandDetailModal: React.FC = () => {
@@ -43,6 +54,13 @@ export const DemandDetailModal: React.FC = () => {
     toggleChecklistItem,
     addChecklistItem,
     deleteChecklistItem,
+    activeTimer,
+    startTimer,
+    stopTimer,
+    addManualApontamento,
+    deleteApontamento,
+    getApontamentosByDemand,
+    getTotalMinutosByDemand,
     getClientById,
     getUserById,
     getStageById,
@@ -53,12 +71,16 @@ export const DemandDetailModal: React.FC = () => {
 
   const demand = demands.find((d) => d.id === selectedDemandId);
 
-  const [activeTab, setActiveTab] = useState<'briefing' | 'checklist' | 'comentarios' | 'historico'>('briefing');
+  const [activeTab, setActiveTab] = useState<'briefing' | 'checklist' | 'comentarios' | 'historico' | 'horas'>('briefing');
   const [commentText, setCommentText] = useState('');
   const [newChecklistText, setNewChecklistText] = useState('');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   const [copiedBriefing, setCopiedBriefing] = useState(false);
+  const [manualDuracao, setManualDuracao] = useState('');
+  const [manualData, setManualData] = useState(() => new Date().toISOString().split('T')[0]);
+  const [manualError, setManualError] = useState('');
+  const [, forceTick] = useState(0);
 
   // Sync title when opening
   useEffect(() => {
@@ -66,6 +88,16 @@ export const DemandDetailModal: React.FC = () => {
       setTitleInput(demand.titulo);
     }
   }, [demand?.id]);
+
+  // Re-render every second while there is a timer running for this demand, to update the live counter
+  const isTimerRunningHere = Boolean(
+    activeTimer && demand && activeTimer.demandaId === demand.id && activeTimer.usuarioId === currentUser.id
+  );
+  useEffect(() => {
+    if (!isTimerRunningHere) return;
+    const interval = setInterval(() => forceTick((n) => n + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isTimerRunningHere]);
 
   if (!demand) return null;
 
@@ -79,6 +111,28 @@ export const DemandDetailModal: React.FC = () => {
   const totalChecklist = demand.checklist?.length || 0;
   const completedChecklist = demand.checklist?.filter((c) => c.concluido).length || 0;
   const checklistPercent = totalChecklist > 0 ? Math.round((completedChecklist / totalChecklist) * 100) : 0;
+
+  const demandApontamentos = getApontamentosByDemand(demand.id);
+  const totalMinutosDemand = getTotalMinutosByDemand(demand.id);
+  const timerElapsedMinutes = isTimerRunningHere && activeTimer
+    ? Math.floor((Date.now() - new Date(activeTimer.inicio).getTime()) / 60000)
+    : 0;
+  const isTimerRunningElsewhere = Boolean(activeTimer && !isTimerRunningHere && activeTimer.usuarioId === currentUser.id);
+
+  const handleStartTimer = () => startTimer(demand.id);
+  const handleStopTimer = () => stopTimer();
+
+  const handleAddManualApontamento = (e: React.FormEvent) => {
+    e.preventDefault();
+    const minutos = parseDurationToMinutes(manualDuracao);
+    if (!minutos) {
+      setManualError('Informe uma duração válida (ex: 2h30, 1:30 ou 90).');
+      return;
+    }
+    setManualError('');
+    addManualApontamento(demand.id, minutos, manualData);
+    setManualDuracao('');
+  };
 
   const handleSaveTitle = () => {
     if (titleInput.trim() && titleInput !== demand.titulo) {
@@ -387,6 +441,18 @@ ${demand.briefing?.link_drive ? `🔗 Link Drive / Arquivos: ${demand.briefing.l
               >
                 <History className="w-4 h-4" />
                 <span>Histórico</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('horas')}
+                className={`pb-2.5 transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === 'horas'
+                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-300 font-bold'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
+              >
+                <Clock className="w-4 h-4" />
+                <span>Horas ({formatMinutesToHours(totalMinutosDemand)})</span>
               </button>
             </div>
 
@@ -777,6 +843,172 @@ ${demand.briefing?.link_drive ? `🔗 Link Drive / Arquivos: ${demand.briefing.l
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* TAB 5: HORAS (Apontamento de Tempo) */}
+            {activeTab === 'horas' && (
+              <div className="space-y-4">
+
+                {/* Total + Timer Control */}
+                <div className={`p-4 rounded-xl border backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                  isDark ? 'bg-white/[0.04] border-white/10' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <div>
+                    <p className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                      Total apontado nesta demanda
+                    </p>
+                    <p className={`text-xl font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                      {formatMinutesToHours(totalMinutosDemand)}
+                    </p>
+                  </div>
+
+                  {isTimerRunningHere ? (
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className={`text-[10px] font-semibold ${isDark ? 'text-emerald-300' : 'text-emerald-600'}`}>
+                          Timer rodando desde {activeTimer && formatTimeHM(activeTimer.inicio)}
+                        </p>
+                        <p className={`text-sm font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                          {formatMinutesToHours(timerElapsedMinutes)} decorridos
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleStopTimer}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/30 transition-all cursor-pointer"
+                      >
+                        <Square className="w-3.5 h-3.5" />
+                        <span>Parar</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-end gap-1">
+                      <button
+                        onClick={handleStartTimer}
+                        disabled={isTimerRunningElsewhere}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-emerald-600/30 transition-all cursor-pointer"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                        <span>Iniciar Timer</span>
+                      </button>
+                      {isTimerRunningElsewhere && (
+                        <span className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Você já tem um timer rodando em outra demanda.
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Manual entry form */}
+                <form onSubmit={handleAddManualApontamento} className={`p-3.5 rounded-xl border backdrop-blur-md space-y-2.5 ${
+                  isDark ? 'bg-white/[0.02] border-white/10' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                    Lançar horas manualmente
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+                    <input
+                      type="text"
+                      value={manualDuracao}
+                      onChange={(e) => setManualDuracao(e.target.value)}
+                      placeholder="Duração (ex: 2h30, 1:30, 90)"
+                      className={`text-xs p-2.5 border rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-400/50 ${
+                        isDark
+                          ? 'bg-white/[0.05] border-white/10 text-slate-100 placeholder-slate-500 focus:bg-white/[0.08]'
+                          : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
+                      }`}
+                    />
+                    <input
+                      type="date"
+                      value={manualData}
+                      max={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => setManualData(e.target.value)}
+                      className={`text-xs p-2.5 border rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-400/50 ${
+                        isDark
+                          ? 'bg-white/[0.05] border-white/10 text-slate-100 focus:bg-white/[0.08]'
+                          : 'bg-white border-slate-200 text-slate-900'
+                      }`}
+                    />
+                    <button
+                      type="submit"
+                      className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shrink-0 cursor-pointer shadow-md shadow-indigo-600/30 transition-all"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Lançar</span>
+                    </button>
+                  </div>
+                  {manualError && (
+                    <div className={`flex items-center gap-2 text-xs font-medium ${isDark ? 'text-rose-300' : 'text-rose-600'}`}>
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{manualError}</span>
+                    </div>
+                  )}
+                </form>
+
+                {/* List of apontamentos */}
+                <div className="space-y-2">
+                  {demandApontamentos.map((apontamento) => {
+                    const author = getUserById(apontamento.usuario_id);
+                    const canDelete = currentUser.id === apontamento.usuario_id || currentUser.papel === 'gerente';
+                    return (
+                      <div
+                        key={apontamento.id}
+                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs ${
+                          isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[10px] shrink-0 shadow-xs"
+                            style={{ backgroundColor: author?.cor_avatar || '#6366f1' }}
+                          >
+                            {getInitials(author?.nome || '?')}
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`font-semibold truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                              {author?.nome || 'Usuário'}
+                              <span className={`ml-1.5 font-normal text-[10px] px-1.5 py-0.5 rounded ${
+                                apontamento.tipo === 'timer'
+                                  ? isDark ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-50 text-emerald-700'
+                                  : isDark ? 'bg-white/10 text-slate-300' : 'bg-slate-200 text-slate-700'
+                              }`}>
+                                {apontamento.tipo === 'timer' ? 'Timer' : 'Manual'}
+                              </span>
+                            </p>
+                            <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                              {apontamento.tipo === 'timer' && apontamento.inicio
+                                ? `${formatTimeHM(apontamento.inicio)} – ${apontamento.fim ? formatTimeHM(apontamento.fim) : '--:--'}`
+                                : formatDateBR(apontamento.data_trabalho || '')}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                            {formatMinutesToHours(apontamento.duracao_minutos)}
+                          </span>
+                          {canDelete && (
+                            <button
+                              onClick={() => deleteApontamento(apontamento.id)}
+                              className="text-slate-400 hover:text-rose-500 p-1 transition-colors cursor-pointer"
+                              title="Remover apontamento"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {demandApontamentos.length === 0 && (
+                    <p className={`text-xs text-center py-4 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+                      Nenhum apontamento de horas registrado ainda.
+                    </p>
+                  )}
+                </div>
+
               </div>
             )}
 

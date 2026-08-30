@@ -4,7 +4,9 @@
  */
 
 import React from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { DemandProvider, useDemands } from './context/DemandContext';
+import { LoginScreen } from './components/LoginScreen';
 import { Navbar } from './components/Navbar';
 import { FiltersBar } from './components/FiltersBar';
 import { KanbanView } from './components/KanbanView';
@@ -16,7 +18,6 @@ import { NewDemandModal } from './components/NewDemandModal';
 import { ManageClientsModal } from './components/ManageClientsModal';
 import { ManageTeamModal } from './components/ManageTeamModal';
 import { ManageStagesModal } from './components/ManageStagesModal';
-import { AiBriefingModal } from './components/AiBriefingModal';
 
 const AppContent: React.FC = () => {
   const { viewMode, theme } = useDemands();
@@ -64,15 +65,36 @@ const AppContent: React.FC = () => {
       <ManageClientsModal />
       <ManageTeamModal />
       <ManageStagesModal />
-      <AiBriefingModal />
     </div>
+  );
+};
+
+const AuthGate: React.FC = () => {
+  const { currentUser, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0c] text-slate-400 text-sm">
+        Carregando...
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <LoginScreen />;
+  }
+
+  return (
+    <DemandProvider>
+      <AppContent />
+    </DemandProvider>
   );
 };
 
 export default function App() {
   return (
-    <DemandProvider>
-      <AppContent />
-    </DemandProvider>
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
   );
 }

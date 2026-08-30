@@ -58,7 +58,7 @@ export interface ActivityLog {
   id: string;
   timestamp: string; // ISO string
   autor_id: string;
-  acao: 'criado' | 'movido' | 'editado' | 'comentado' | 'checklist' | 'concluido';
+  acao: 'criado' | 'movido' | 'editado' | 'atualizado' | 'comentado' | 'checklist' | 'concluido';
   detalhe: string;
 }
 
@@ -102,3 +102,23 @@ export interface FilterState {
 export type ViewMode = 'kanban' | 'tabela' | 'calendario' | 'equipe';
 
 export type ThemeMode = 'dark' | 'light';
+
+export type ApontamentoTipo = 'timer' | 'manual';
+
+export interface Apontamento {
+  id: string;
+  demanda_id: string;
+  usuario_id: string;
+  inicio?: string; // ISO string, presente quando tipo === 'timer'
+  fim?: string; // ISO string, presente quando tipo === 'timer'
+  data_trabalho?: string; // YYYY-MM-DD, presente quando tipo === 'manual'
+  duracao_minutos: number;
+  tipo: ApontamentoTipo;
+  criado_em: string; // ISO string
+}
+
+export interface ActiveTimer {
+  demandaId: string;
+  usuarioId: string;
+  inicio: string; // ISO string
+}

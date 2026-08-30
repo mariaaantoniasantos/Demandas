@@ -1,35 +1,4 @@
-import { Client, Demand, Stage, User } from '../types';
-
-export const INITIAL_USERS: User[] = [
-  {
-    id: 'user_mariana',
-    nome: 'Mariana Santos',
-    email: 'mariana.santos@v4company.com',
-    cor_avatar: '#10b981',
-    papel: 'gerente',
-  },
-  {
-    id: 'user_lucas',
-    nome: 'Lucas Silva',
-    email: 'lucas.designer@agencia.com',
-    cor_avatar: '#8b5cf6',
-    papel: 'designer',
-  },
-  {
-    id: 'user_beatriz',
-    nome: 'Beatriz Lima',
-    email: 'beatriz.social@agencia.com',
-    cor_avatar: '#ec4899',
-    papel: 'social_media',
-  },
-  {
-    id: 'user_rafael',
-    nome: 'Rafael Costa',
-    email: 'rafael.video@agencia.com',
-    cor_avatar: '#f59e0b',
-    papel: 'videomaker',
-  },
-];
+import { Client, Demand, Stage } from '../types';
 
 export const INITIAL_CLIENTS: Client[] = [
   {

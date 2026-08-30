@@ -3,9 +3,10 @@ import {
   INITIAL_CLIENTS,
   INITIAL_DEMANDS,
   INITIAL_STAGES,
-  INITIAL_USERS,
 } from '../data/initialData';
 import {
+  ActiveTimer,
+  Apontamento,
   Client,
   Demand,
   FilterState,
@@ -14,6 +15,13 @@ import {
   User,
   ViewMode,
 } from '../types';
+import { useAuth } from './AuthContext';
+
+interface AddUserResult {
+  success: boolean;
+  error?: string;
+  user?: User;
+}
 
 interface DemandContextType {
   demands: Demand[];
@@ -21,7 +29,6 @@ interface DemandContextType {
   clients: Client[];
   users: User[];
   currentUser: User;
-  setCurrentUser: (user: User) => void;
   selectedDemandId: string | null;
   setSelectedDemandId: (id: string | null) => void;
   isNewDemandModalOpen: boolean;
@@ -36,7 +43,7 @@ interface DemandContextType {
   theme: ThemeMode;
   setTheme: (theme: ThemeMode) => void;
   toggleTheme: () => void;
-  
+
   // Modals for management
   isTeamModalOpen: boolean;
   setIsTeamModalOpen: (open: boolean) => void;
@@ -44,8 +51,6 @@ interface DemandContextType {
   setIsClientModalOpen: (open: boolean) => void;
   isStageModalOpen: boolean;
   setIsStageModalOpen: (open: boolean) => void;
-  isAiModalOpen: boolean;
-  setIsAiModalOpen: (open: boolean) => void;
 
   // CRUD Demand
   addDemand: (data: Partial<Demand>) => Demand;
@@ -60,13 +65,25 @@ interface DemandContextType {
   addChecklistItem: (demandId: string, texto: string) => void;
   deleteChecklistItem: (demandId: string, itemId: string) => void;
 
+  // Apontamento de horas
+  apontamentos: Apontamento[];
+  activeTimer: ActiveTimer | null;
+  startTimer: (demandaId: string) => void;
+  stopTimer: () => void;
+  addManualApontamento: (demandaId: string, duracaoMinutos: number, dataTrabalho: string) => void;
+  deleteApontamento: (id: string) => void;
+  getApontamentosByDemand: (demandaId: string) => Apontamento[];
+  getTotalMinutosByDemand: (demandaId: string) => number;
+  getTotalMinutosByClient: (clienteId: string) => number;
+  getTotalMinutosByUser: (usuarioId: string) => number;
+
   // Entities CRUD
   addClient: (client: Omit<Client, 'id'>) => Client;
   updateClient: (id: string, updates: Partial<Client>) => void;
   deleteClient: (id: string) => void;
-  addUser: (user: Omit<User, 'id'>) => User;
-  updateUser: (id: string, updates: Partial<User>) => void;
-  deleteUser: (id: string) => void;
+  addUser: (user: Omit<User, 'id'> & { senha: string }) => Promise<AddUserResult>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
   addStage: (stage: Omit<Stage, 'id' | 'ordem'>) => Stage;
   updateStage: (id: string, updates: Partial<Stage>) => void;
   deleteStage: (id: string) => void;
@@ -90,8 +107,8 @@ const STORAGE_KEYS = {
   DEMANDS: 'agencia_demandas_v1',
   STAGES: 'agencia_etapas_v1',
   CLIENTS: 'agencia_clientes_v1',
-  USERS: 'agencia_usuarios_v1',
-  CURRENT_USER_ID: 'agencia_current_user_id_v1',
+  APONTAMENTOS: 'agencia_apontamentos_v1',
+  ACTIVE_TIMER: 'agencia_active_timer_v1',
   THEME: 'agencia_theme_v1',
 };
 
@@ -107,6 +124,10 @@ const initialFilters: FilterState = {
 const DemandContext = createContext<DemandContextType | undefined>(undefined);
 
 export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const auth = useAuth();
+  // O DemandProvider só é montado (em App.tsx) quando já existe um usuário autenticado.
+  const currentUser = auth.currentUser as User;
+
   // Theme state
   const [theme, setTheme] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.THEME);
@@ -153,22 +174,27 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return INITIAL_CLIENTS;
   });
 
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return INITIAL_USERS;
-  });
+  // Usuários agora vivem no servidor (senha com hash) — carregados via API autenticada.
+  const [users, setUsers] = useState<User[]>([]);
 
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    const savedId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
-    if (savedId) {
-      const found = users.find((u) => u.id === savedId);
-      if (found) return found;
+  useEffect(() => {
+    let cancelled = false;
+    async function loadUsers() {
+      try {
+        const res = await auth.authFetch('/api/usuarios');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setUsers(data.users);
+      } catch (e) {
+        console.error('Falha ao carregar usuários', e);
+      }
     }
-    return users[0] || INITIAL_USERS[0];
-  });
+    loadUsers();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [demands, setDemands] = useState<Demand[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.DEMANDS);
@@ -176,6 +202,22 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
     return INITIAL_DEMANDS;
+  });
+
+  const [apontamentos, setApontamentos] = useState<Apontamento[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.APONTAMENTOS);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return [];
+  });
+
+  const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_TIMER);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return null;
   });
 
   // UI state
@@ -189,7 +231,6 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [isStageModalOpen, setIsStageModalOpen] = useState(false);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   // Sync to local storage
   useEffect(() => {
@@ -205,14 +246,16 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [clients]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-  }, [users]);
+    localStorage.setItem(STORAGE_KEYS.APONTAMENTOS, JSON.stringify(apontamentos));
+  }, [apontamentos]);
 
   useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, currentUser.id);
+    if (activeTimer) {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_TIMER, JSON.stringify(activeTimer));
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_TIMER);
     }
-  }, [currentUser]);
+  }, [activeTimer]);
 
   // Lookup functions
   const getClientById = (id: string) => clients.find((c) => c.id === id);
@@ -405,7 +448,6 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const demand = prev.find((d) => d.id === demandId);
       if (!demand) return prev;
 
-      const fromStage = getStageById(demand.etapa_id)?.nome || demand.etapa_id;
       const toStage = getStageById(targetStageId)?.nome || targetStageId;
       const nowIso = new Date().toISOString();
 
@@ -428,7 +470,7 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
 
       const withoutMoved = prev.filter((d) => d.id !== demandId);
-      
+
       if (typeof newIndex === 'number' && newIndex >= 0) {
         // Items currently belonging to target stage
         const targetStageItems = withoutMoved.filter((d) => d.etapa_id === targetStageId);
@@ -459,6 +501,7 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const deleteDemand = (id: string) => {
     setDemands((prev) => prev.filter((d) => d.id !== id));
+    setApontamentos((prev) => prev.filter((a) => a.demanda_id !== id));
     if (selectedDemandId === id) {
       setSelectedDemandId(null);
     }
@@ -562,6 +605,73 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
+  // Apontamento de horas (timer + lançamento manual)
+  const startTimer = (demandaId: string) => {
+    if (activeTimer) return; // já existe um timer rodando para o usuário
+    setActiveTimer({
+      demandaId,
+      usuarioId: currentUser.id,
+      inicio: new Date().toISOString(),
+    });
+  };
+
+  const stopTimer = () => {
+    if (!activeTimer) return;
+    const fimIso = new Date().toISOString();
+    const inicioMs = new Date(activeTimer.inicio).getTime();
+    const duracaoMinutos = Math.max(1, Math.round((Date.now() - inicioMs) / 60000));
+
+    const newApontamento: Apontamento = {
+      id: `apt_${Date.now()}`,
+      demanda_id: activeTimer.demandaId,
+      usuario_id: activeTimer.usuarioId,
+      inicio: activeTimer.inicio,
+      fim: fimIso,
+      duracao_minutos: duracaoMinutos,
+      tipo: 'timer',
+      criado_em: fimIso,
+    };
+
+    setApontamentos((prev) => [newApontamento, ...prev]);
+    setActiveTimer(null);
+  };
+
+  const addManualApontamento = (demandaId: string, duracaoMinutos: number, dataTrabalho: string) => {
+    if (!duracaoMinutos || duracaoMinutos <= 0) return;
+    const newApontamento: Apontamento = {
+      id: `apt_${Date.now()}`,
+      demanda_id: demandaId,
+      usuario_id: currentUser.id,
+      data_trabalho: dataTrabalho || new Date().toISOString().split('T')[0],
+      duracao_minutos: Math.round(duracaoMinutos),
+      tipo: 'manual',
+      criado_em: new Date().toISOString(),
+    };
+    setApontamentos((prev) => [newApontamento, ...prev]);
+  };
+
+  const deleteApontamento = (id: string) => {
+    setApontamentos((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const getApontamentosByDemand = (demandaId: string) =>
+    apontamentos
+      .filter((a) => a.demanda_id === demandaId)
+      .sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
+
+  const getTotalMinutosByDemand = (demandaId: string) =>
+    apontamentos.filter((a) => a.demanda_id === demandaId).reduce((sum, a) => sum + a.duracao_minutos, 0);
+
+  const getTotalMinutosByClient = (clienteId: string) => {
+    const demandIds = new Set(demands.filter((d) => d.cliente_id === clienteId).map((d) => d.id));
+    return apontamentos
+      .filter((a) => demandIds.has(a.demanda_id))
+      .reduce((sum, a) => sum + a.duracao_minutos, 0);
+  };
+
+  const getTotalMinutosByUser = (usuarioId: string) =>
+    apontamentos.filter((a) => a.usuario_id === usuarioId).reduce((sum, a) => sum + a.duracao_minutos, 0);
+
   // Client CRUD
   const addClient = (clientData: Omit<Client, 'id'>) => {
     const newClient: Client = {
@@ -580,29 +690,58 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setClients((prev) => prev.filter((c) => c.id !== id));
   };
 
-  // User CRUD
-  const addUser = (userData: Omit<User, 'id'>) => {
-    const newUser: User = {
-      ...userData,
-      id: `user_${Date.now()}`,
-    };
-    setUsers((prev) => [...prev, newUser]);
-    return newUser;
-  };
-
-  const updateUser = (id: string, updates: Partial<User>) => {
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updates } : u)));
-    if (currentUser.id === id) {
-      setCurrentUser((prev) => ({ ...prev, ...updates }));
+  // User CRUD — agora via API do servidor (usuários possuem senha com hash)
+  const addUser = async (userData: Omit<User, 'id'> & { senha: string }): Promise<AddUserResult> => {
+    try {
+      const res = await auth.authFetch('/api/usuarios', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Não foi possível cadastrar o usuário.' };
+      }
+      setUsers((prev) => [...prev, data.user]);
+      return { success: true, user: data.user };
+    } catch (e) {
+      return { success: false, error: 'Erro de conexão com o servidor.' };
     }
   };
 
-  const deleteUser = (id: string) => {
+  const updateUser = async (id: string, updates: Partial<User>) => {
+    try {
+      const res = await auth.authFetch(`/api/usuarios/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('Falha ao atualizar usuário', data.error);
+        return;
+      }
+      const data = await res.json();
+      setUsers((prev) => prev.map((u) => (u.id === id ? data.user : u)));
+      if (currentUser.id === id) {
+        auth.setCurrentUser(data.user);
+      }
+    } catch (e) {
+      console.error('Falha ao atualizar usuário', e);
+    }
+  };
+
+  const deleteUser = async (id: string) => {
     if (users.length <= 1) return; // Don't delete last user
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-    if (currentUser.id === id) {
-      const nextUser = users.find((u) => u.id !== id);
-      if (nextUser) setCurrentUser(nextUser);
+    if (id === currentUser.id) return; // Não é possível remover o próprio usuário logado
+    try {
+      const res = await auth.authFetch(`/api/usuarios/${id}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) {
+        const data = await res.json().catch(() => ({}));
+        console.error('Falha ao remover usuário', data.error);
+        return;
+      }
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    } catch (e) {
+      console.error('Falha ao remover usuário', e);
     }
   };
 
@@ -645,7 +784,7 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setDemands((prev) =>
       prev.map((d) => (d.etapa_id === id ? { ...d, etapa_id: fallbackStageId } : d))
     );
-    
+
     // If deleted stage was final, or if no remaining stage is final, mark the new last stage as final
     const hasFinal = remaining.some((s) => s.e_etapa_final);
     if (stageToDelete?.e_etapa_final || !hasFinal) {
@@ -665,16 +804,20 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setStages(withUpdatedOrder);
   };
 
-  // Reset defaults
+  // Reset defaults (não afeta usuários/autenticação, tema ou sessão)
   const resetToDefaults = () => {
     if (window.confirm('Deseja restaurar os dados de exemplo padrão? Todas as alterações manuais serão resetadas.')) {
       setStages(INITIAL_STAGES);
       setClients(INITIAL_CLIENTS);
-      setUsers(INITIAL_USERS);
       setDemands(INITIAL_DEMANDS);
-      setCurrentUser(INITIAL_USERS[0]);
+      setApontamentos([]);
+      setActiveTimer(null);
       setFilters(initialFilters);
-      localStorage.clear();
+      localStorage.removeItem(STORAGE_KEYS.DEMANDS);
+      localStorage.removeItem(STORAGE_KEYS.STAGES);
+      localStorage.removeItem(STORAGE_KEYS.CLIENTS);
+      localStorage.removeItem(STORAGE_KEYS.APONTAMENTOS);
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_TIMER);
     }
   };
 
@@ -683,10 +826,10 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const dataToExport = {
       stages,
       clients,
-      users,
       demands,
+      apontamentos,
       exportedAt: new Date().toISOString(),
-      version: '1.0.0',
+      version: '2.0.0',
     };
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
     const downloadAnchor = document.createElement('a');
@@ -704,11 +847,8 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (Array.isArray(parsed.demands) && Array.isArray(parsed.stages)) {
         setStages(parsed.stages);
         setClients(parsed.clients || INITIAL_CLIENTS);
-        setUsers(parsed.users || INITIAL_USERS);
         setDemands(parsed.demands);
-        if (parsed.users && parsed.users[0]) {
-          setCurrentUser(parsed.users[0]);
-        }
+        setApontamentos(Array.isArray(parsed.apontamentos) ? parsed.apontamentos : []);
         return true;
       }
       return false;
@@ -726,7 +866,6 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         clients,
         users,
         currentUser,
-        setCurrentUser,
         selectedDemandId,
         setSelectedDemandId,
         isNewDemandModalOpen,
@@ -747,8 +886,6 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsClientModalOpen,
         isStageModalOpen,
         setIsStageModalOpen,
-        isAiModalOpen,
-        setIsAiModalOpen,
         addDemand,
         updateDemand,
         moveDemand,
@@ -758,6 +895,16 @@ export const DemandProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         toggleChecklistItem,
         addChecklistItem,
         deleteChecklistItem,
+        apontamentos,
+        activeTimer,
+        startTimer,
+        stopTimer,
+        addManualApontamento,
+        deleteApontamento,
+        getApontamentosByDemand,
+        getTotalMinutosByDemand,
+        getTotalMinutosByClient,
+        getTotalMinutosByUser,
         addClient,
         updateClient,
         deleteClient,
