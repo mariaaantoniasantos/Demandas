@@ -5,7 +5,6 @@ import {
   Calendar,
   Users,
   Plus,
-  Settings,
   Download,
   Building2,
   SlidersHorizontal,
@@ -98,36 +97,35 @@ export const Navbar: React.FC = () => {
 
           {/* Quick Metrics Bar (Middle) */}
           <div
-            className={`hidden lg:flex items-center gap-2 backdrop-blur-md p-1.5 rounded-xl border text-xs ${
-              isDark ? 'bg-white/[0.04] border-white/10' : 'bg-slate-100/90 border-slate-200'
+            className={`hidden lg:flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs ${
+              isDark ? 'bg-white/[0.03]' : 'bg-slate-100/70'
             }`}
           >
-            <div
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-medium ${
-                isDark
-                  ? 'bg-white/[0.08] border-white/10 text-slate-200'
-                  : 'bg-white border-slate-200 text-slate-700 shadow-xs'
-              }`}
-            >
-              <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Ativas:</span>
+            <div className="flex items-center gap-1.5">
+              <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Ativas</span>
               <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeDemands.length}</span>
             </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-blue-500 dark:text-blue-300 bg-blue-500/15 border border-blue-500/30 font-medium">
+            <span className={`w-px h-3 ${isDark ? 'bg-white/10' : 'bg-slate-300'}`} />
+            <div className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
-              <span>Produção:</span>
-              <span className="font-bold text-blue-600 dark:text-blue-200">{inProduction.length}</span>
+              <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Produção</span>
+              <span className="font-bold text-blue-600 dark:text-blue-300">{inProduction.length}</span>
             </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-purple-500 dark:text-purple-300 bg-purple-500/15 border border-purple-500/30 font-medium">
+            <span className={`w-px h-3 ${isDark ? 'bg-white/10' : 'bg-slate-300'}`} />
+            <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400" />
-              <span>Aprovação:</span>
-              <span className="font-bold text-purple-600 dark:text-purple-200">{inApproval.length}</span>
+              <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Aprovação</span>
+              <span className="font-bold text-purple-600 dark:text-purple-300">{inApproval.length}</span>
             </div>
             {overdueDemands.length > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-red-500 dark:text-red-300 bg-red-500/20 border border-red-500/40 font-medium animate-pulse">
-                <AlertCircle className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />
-                <span>Atrasadas:</span>
-                <span className="font-bold text-red-600 dark:text-red-200">{overdueDemands.length}</span>
-              </div>
+              <>
+                <span className={`w-px h-3 ${isDark ? 'bg-white/10' : 'bg-slate-300'}`} />
+                <div className="flex items-center gap-1.5 text-red-500 dark:text-red-400">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>Atrasadas</span>
+                  <span className="font-bold text-red-600 dark:text-red-300">{overdueDemands.length}</span>
+                </div>
+              </>
             )}
           </div>
 
@@ -232,63 +230,32 @@ export const Navbar: React.FC = () => {
               )}
             </button>
 
-            {/* Usuário Logado */}
-            <div
-              className={`flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-xl border text-left text-xs backdrop-blur-md ${
-                isDark
-                  ? 'border-white/10 bg-white/[0.05]'
-                  : 'border-slate-200 bg-white shadow-xs'
-              }`}
-              title={`Logado como ${currentUser.nome}`}
-            >
-              <div
-                className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-[10px] shrink-0 shadow-sm"
-                style={{ backgroundColor: currentUser.cor_avatar }}
-              >
-                {getInitials(currentUser.nome)}
-              </div>
-              <div className="hidden xl:block">
-                <div className={`font-semibold text-xs leading-none ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
-                  {currentUser.nome.split(' ')[0]}
-                </div>
-                <div className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  {USER_ROLE_CONFIG[currentUser.papel].label}
-                </div>
-              </div>
-            </div>
-
-            {/* Logout */}
-            <button
-              id="logout-btn"
-              onClick={() => {
-                if (confirm('Deseja sair da sua conta?')) {
-                  logout();
-                }
-              }}
-              className={`flex items-center justify-center p-2 rounded-xl border backdrop-blur-md transition-all cursor-pointer ${
-                isDark
-                  ? 'border-white/10 bg-white/[0.05] hover:bg-white/[0.1] text-rose-300 hover:text-rose-200 shadow-xs'
-                  : 'border-slate-200 bg-white hover:bg-slate-50 text-rose-600 hover:text-rose-700 shadow-xs'
-              }`}
-              title="Sair da conta"
-              aria-label="Sair"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-
-            {/* Quick Settings & Management Menu */}
+            {/* Conta: Avatar + Menu de Configurações e Gestão */}
             <div className="relative" ref={settingsMenuRef}>
               <button
-                id="settings-menu-btn"
+                id="account-menu-btn"
                 onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
-                className={`p-2 rounded-xl border backdrop-blur-md transition-colors ${
+                className={`flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-xl border text-left text-xs backdrop-blur-md transition-colors cursor-pointer ${
                   isDark
-                    ? 'border-white/10 bg-white/[0.05] hover:bg-white/[0.09] text-slate-300 hover:text-white'
-                    : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 shadow-xs'
+                    ? 'border-white/10 bg-white/[0.05] hover:bg-white/[0.09]'
+                    : 'border-slate-200 bg-white hover:bg-slate-50 shadow-xs'
                 }`}
-                title="Configurações e Gestão da Agência"
+                title={`Logado como ${currentUser.nome}`}
               >
-                <Settings className="w-4 h-4" />
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-[10px] shrink-0 shadow-sm"
+                  style={{ backgroundColor: currentUser.cor_avatar }}
+                >
+                  {getInitials(currentUser.nome)}
+                </div>
+                <div className="hidden xl:block">
+                  <div className={`font-semibold text-xs leading-none ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+                    {currentUser.nome.split(' ')[0]}
+                  </div>
+                  <div className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {USER_ROLE_CONFIG[currentUser.papel].label}
+                  </div>
+                </div>
               </button>
 
               {isSettingsMenuOpen && (
@@ -305,30 +272,6 @@ export const Navbar: React.FC = () => {
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      toggleTheme();
-                      setIsSettingsMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors ${
-                      isDark ? 'text-slate-200 hover:text-white hover:bg-white/10' : 'text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {isDark ? (
-                        <Sun className="w-4 h-4 text-amber-400" />
-                      ) : (
-                        <Moon className="w-4 h-4 text-indigo-500" />
-                      )}
-                      <span>{isDark ? 'Mudar para Modo Claro' : 'Mudar para Modo Noturno'}</span>
-                    </div>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${isDark ? 'bg-white/10 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>
-                      {isDark ? 'Escuro' : 'Claro'}
-                    </span>
-                  </button>
-
-                  <div className={`my-1 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`} />
-                  
                   <button
                     onClick={() => {
                       setIsClientModalOpen(true);
@@ -381,6 +324,23 @@ export const Navbar: React.FC = () => {
                   >
                     <Download className="w-4 h-4 text-slate-400" />
                     <span>Exportar Backup (JSON)</span>
+                  </button>
+
+                  <div className={`my-1 border-t ${isDark ? 'border-white/10' : 'border-slate-200'}`} />
+
+                  <button
+                    onClick={() => {
+                      setIsSettingsMenuOpen(false);
+                      if (confirm('Deseja sair da sua conta?')) {
+                        logout();
+                      }
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
+                      isDark ? 'text-rose-300 hover:text-rose-200 hover:bg-rose-500/10' : 'text-rose-600 hover:text-rose-700 hover:bg-rose-50'
+                    }`}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Sair da conta</span>
                   </button>
                 </div>
               )}
