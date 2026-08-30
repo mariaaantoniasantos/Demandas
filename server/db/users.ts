@@ -2,7 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 
-const DATA_DIR = path.resolve(process.cwd(), 'server/data');
+// Permite apontar para o mount path de um disco persistente (ex: no Render)
+// através da variável de ambiente DATA_DIR. Sem essa variável, usa a pasta
+// server/data dentro do próprio projeto (comportamento padrão local/dev).
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.resolve(process.cwd(), 'server/data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
 // Senha padrão dos usuários de demonstração na primeira inicialização do servidor.
