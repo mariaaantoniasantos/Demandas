@@ -59,7 +59,7 @@ export const NewDemandModal: React.FC = () => {
     if (isNewDemandModalOpen) {
       setClienteId(clients[0]?.id || '');
       setResponsavelId(currentUser.id || users[0]?.id || '');
-      setEtapaId(newDemandInitialStageId || stages[0]?.id || 'stage_ideias');
+      setEtapaId(newDemandInitialStageId || stages[0]?.id || '');
       
       const defaultDate = new Date();
       defaultDate.setDate(defaultDate.getDate() + 2);
@@ -122,40 +122,44 @@ export const NewDemandModal: React.FC = () => {
     setChecklistItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!titulo.trim()) {
       alert('Por favor, informe o título da demanda.');
       return;
     }
 
-    const created = addDemand({
-      titulo: titulo.trim(),
-      descricao: descricao.trim(),
-      cliente_id: clienteId,
-      responsavel_id: responsavelId,
-      etapa_id: etapaId,
-      tipo,
-      prioridade,
-      prazo,
-      hora_agendamento: horaAgendamento,
-      briefing: {
-        objetivo: objetivo.trim(),
-        formato: formato.trim(),
-        copy_sugestao: copySugestao.trim(),
-        referencias: referencias.trim(),
-        link_drive: linkDrive.trim(),
-      },
-      checklist: checklistItems.map((text) => ({
-        id: `chk_${Date.now()}_${Math.random()}`,
-        texto: text,
-        concluido: false,
-      })),
-      comentarios: [],
-    });
+    try {
+      const created = await addDemand({
+        titulo: titulo.trim(),
+        descricao: descricao.trim(),
+        cliente_id: clienteId,
+        responsavel_id: responsavelId,
+        etapa_id: etapaId,
+        tipo,
+        prioridade,
+        prazo,
+        hora_agendamento: horaAgendamento,
+        briefing: {
+          objetivo: objetivo.trim(),
+          formato: formato.trim(),
+          copy_sugestao: copySugestao.trim(),
+          referencias: referencias.trim(),
+          link_drive: linkDrive.trim(),
+        },
+        checklist: checklistItems.map((text) => ({
+          id: `chk_${Date.now()}_${Math.random()}`,
+          texto: text,
+          concluido: false,
+        })),
+        comentarios: [],
+      });
 
-    setIsNewDemandModalOpen(false);
-    setSelectedDemandId(created.id);
+      setIsNewDemandModalOpen(false);
+      setSelectedDemandId(created.id);
+    } catch (err) {
+      alert('Não foi possível criar a demanda. Tente novamente.');
+    }
   };
 
   return (

@@ -67,14 +67,23 @@ export const ManageTeamModal: React.FC = () => {
     setFormError('');
 
     if (editingUserId) {
+      if (senha && senha.length < 6) {
+        setFormError('A nova senha deve ter pelo menos 6 caracteres.');
+        return;
+      }
       setIsSubmitting(true);
-      await updateUser(editingUserId, {
+      const result = await updateUser(editingUserId, {
         nome: nome.trim(),
         email: email.trim(),
         papel,
         cor_avatar: corAvatar,
+        ...(senha ? { senha } : {}),
       });
       setIsSubmitting(false);
+      if (!result.success) {
+        setFormError(result.error || 'Não foi possível salvar as alterações.');
+        return;
+      }
       resetForm();
     } else {
       if (!email.trim()) {
@@ -183,27 +192,27 @@ export const ManageTeamModal: React.FC = () => {
                 </div>
               </div>
 
-              {!editingUserId && (
-                <div>
-                  <label className={`text-xs font-semibold block mb-1 flex items-center gap-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                    <Lock className="w-3 h-3" />
-                    <span>Senha de acesso * (mín. 6 caracteres)</span>
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    value={senha}
-                    onChange={(e) => setSenha(e.target.value)}
-                    placeholder="••••••••"
-                    className={`w-full text-xs p-2.5 border rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-400/50 ${
-                      isDark
-                        ? 'bg-white/[0.05] border-white/10 text-slate-100 placeholder-slate-500 focus:bg-white/[0.08]'
-                        : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
-                    }`}
-                  />
-                </div>
-              )}
+              <div>
+                <label className={`text-xs font-semibold block mb-1 flex items-center gap-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  <Lock className="w-3 h-3" />
+                  <span>
+                    {editingUserId ? 'Redefinir senha (opcional, mín. 6 caracteres)' : 'Senha de acesso * (mín. 6 caracteres)'}
+                  </span>
+                </label>
+                <input
+                  type="password"
+                  required={!editingUserId}
+                  minLength={6}
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  placeholder={editingUserId ? 'Deixe em branco para manter a senha atual' : '••••••••'}
+                  className={`w-full text-xs p-2.5 border rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-400/50 ${
+                    isDark
+                      ? 'bg-white/[0.05] border-white/10 text-slate-100 placeholder-slate-500 focus:bg-white/[0.08]'
+                      : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
+                  }`}
+                />
+              </div>
 
               <div>
                 <label className={`text-xs font-semibold block mb-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Papel / Especialidade *</label>

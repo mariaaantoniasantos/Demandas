@@ -8,11 +8,9 @@ import {
   Trash2,
   Edit2,
   Check,
-  RotateCcw,
 } from 'lucide-react';
 import { useDemands } from '../context/DemandContext';
 import { Stage } from '../types';
-import { INITIAL_STAGES } from '../data/initialData';
 
 const STAGE_COLORS = [
   '#64748b', '#3b82f6', '#f59e0b', '#8b5cf6', '#06b6d4',
@@ -347,23 +345,6 @@ export const ManageStagesModal: React.FC = () => {
                 </div>
               );
             })}
-          </div>
-
-          {/* Reset standard flow button */}
-          <div className="pt-2">
-            <button
-              onClick={() => {
-                if (confirm('Deseja restaurar as 6 etapas padrão do fluxo de agência?')) {
-                  reorderStages(INITIAL_STAGES);
-                }
-              }}
-              className={`text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${
-                isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Restaurar fluxo padrão da agência (6 etapas)</span>
-            </button>
           </div>
 
         </div>

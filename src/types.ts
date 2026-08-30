@@ -86,6 +86,7 @@ export interface Demand {
   comentarios: Comment[];
   historico: ActivityLog[];
   tags: string[];
+  posicao: number; // ordenação manual (arrastar e soltar) dentro da etapa
   criado_em: string;
   atualizado_em: string;
 }

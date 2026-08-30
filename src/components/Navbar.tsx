@@ -7,8 +7,6 @@ import {
   Plus,
   Settings,
   Download,
-  Upload,
-  RotateCcw,
   Building2,
   SlidersHorizontal,
   Layers,
@@ -29,6 +27,7 @@ export const Navbar: React.FC = () => {
     demands,
     currentUser,
     isEtapaFinal,
+    getStageById,
     viewMode,
     setViewMode,
     theme,
@@ -37,9 +36,7 @@ export const Navbar: React.FC = () => {
     setIsClientModalOpen,
     setIsTeamModalOpen,
     setIsStageModalOpen,
-    resetToDefaults,
     exportDataJson,
-    importDataJson,
   } = useDemands();
   const { logout } = useAuth();
 
@@ -47,7 +44,6 @@ export const Navbar: React.FC = () => {
 
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -63,30 +59,11 @@ export const Navbar: React.FC = () => {
   // Quick Stats
   const todayStr = new Date().toISOString().split('T')[0];
   const activeDemands = demands.filter((d) => !isEtapaFinal(d.etapa_id));
-  const inProduction = demands.filter((d) => d.etapa_id === 'stage_producao');
-  const inApproval = demands.filter((d) => d.etapa_id === 'stage_aprovacao');
+  const inProduction = demands.filter((d) => getStageById(d.etapa_id)?.nome === 'Em Produção');
+  const inApproval = demands.filter((d) => getStageById(d.etapa_id)?.nome === 'Aprovação Cliente');
   const overdueDemands = demands.filter(
     (d) => d.prazo && d.prazo < todayStr && !isEtapaFinal(d.etapa_id)
   );
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const content = evt.target?.result as string;
-      if (content) {
-        const success = importDataJson(content);
-        if (success) {
-          alert('Dados importados com sucesso!');
-        } else {
-          alert('Erro ao importar arquivo JSON. Verifique a estrutura.');
-        }
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
 
   return (
     <header
@@ -405,42 +382,9 @@ export const Navbar: React.FC = () => {
                     <Download className="w-4 h-4 text-slate-400" />
                     <span>Exportar Backup (JSON)</span>
                   </button>
-
-                  <button
-                    onClick={() => {
-                      fileInputRef.current?.click();
-                      setIsSettingsMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
-                      isDark ? 'text-slate-200 hover:text-white hover:bg-white/10' : 'text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Upload className="w-4 h-4 text-slate-400" />
-                    <span>Importar Backup (JSON)</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      resetToDefaults();
-                      setIsSettingsMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 dark:text-red-400 hover:bg-red-500/10 dark:hover:bg-red-500/15 transition-colors"
-                  >
-                    <RotateCcw className="w-4 h-4 text-red-500 dark:text-red-400" />
-                    <span>Restaurar Dados Padrão</span>
-                  </button>
                 </div>
               )}
             </div>
-
-            {/* Hidden file input for import */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              accept=".json"
-              className="hidden"
-            />
 
             {/* Primary Action Button: Nova Demanda */}
             <button

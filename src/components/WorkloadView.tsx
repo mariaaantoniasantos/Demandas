@@ -80,8 +80,8 @@ export const WorkloadView: React.FC = () => {
             const activeDemands = userDemands.filter((d) => !isEtapaFinal(d.etapa_id));
             const completedDemands = userDemands.filter((d) => isEtapaFinal(d.etapa_id));
             const overdueDemands = activeDemands.filter((d) => d.prazo && d.prazo < todayStr);
-            const inProduction = userDemands.filter((d) => d.etapa_id === 'stage_producao');
-            const inApproval = userDemands.filter((d) => d.etapa_id === 'stage_aprovacao');
+            const inProduction = userDemands.filter((d) => getStageById(d.etapa_id)?.nome === 'Em Produção');
+            const inApproval = userDemands.filter((d) => getStageById(d.etapa_id)?.nome === 'Aprovação Cliente');
             const totalMinutos = getTotalMinutosByUser(member.id);
 
             // Workload Level calculation
